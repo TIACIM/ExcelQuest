@@ -12,7 +12,7 @@ Plataforma gamificada de aprendizagem de Excel, construída com Next.js, rotas d
 ## Desenvolvimento local
 
 1. Instale Node.js 22.13 ou superior e execute `npm ci`.
-2. Copie `.env.example` para `.env.local` e configure `DATABASE_URL` com uma URL Postgres de desenvolvimento.
+2. Copie `.env.example` para `.env.local` e configure `DATABASE_URL` com uma URL Postgres de desenvolvimento. Os comandos `db:*` carregam `.env` e `.env.local` automaticamente (`.env.local` tem precedência).
 3. Execute `npm run db:migrate`.
 4. Em um terminal seguro, defina `INITIAL_SUPERADMIN_PASSWORD` e execute `npm run db:provision-superadmin`. O usuário inicial é `TI`; esse comando só insere a conta caso ela ainda não exista e jamais a redefine.
 5. Remova a senha de provisionamento do ambiente e inicie com `npm run dev`.
@@ -36,7 +36,8 @@ Para um domínio próprio, adicione-o em **Settings → Domains** no projeto Ver
 ## Atualizações, rollback, backup e recuperação
 
 - Mantenha migrações SQL novas e incrementais em `db/migrations`. Nunca altere uma migração já aplicada.
-- Faça backup/PITR pelo provedor Postgres antes de migrações relevantes. Para restaurar, siga o procedimento do provedor em outro banco e altere `DATABASE_URL` somente após validar a restauração.
+- Configure backups automáticos e recuperação point-in-time no provedor Postgres. Para uma cópia lógica manual, instale as ferramentas cliente do PostgreSQL e execute `npm run db:backup -- /caminho/seguro/excelquest-$(date +%F).dump`. O comando exige `DATABASE_URL` em `.env.local` ou no ambiente. Armazene a cópia fora desta máquina, em local com acesso restrito; arquivos de backup contêm dados de contas e progresso.
+- Para restaurar, use `pg_restore --no-owner --no-acl --dbname="$DATABASE_URL" /caminho/seguro/backup.dump` em um banco de destino apropriado. Valide a restauração nesse banco antes de alterar `DATABASE_URL` da aplicação.
 - Para reverter uma versão da aplicação, promova um deployment anterior no painel Vercel. Migrações são compatíveis apenas para frente; prepare uma migração corretiva caso um rollback de código dependa de alteração de esquema.
 - A desativação de usuários preserva auditoria e dados; ela também revoga sessões ativas. Há suporte pronto para os perfis `admin`, `manager` e `collaborator`; hoje as ações administrativas ficam exclusivamente com `superadmin`.
 
@@ -48,3 +49,7 @@ Para um domínio próprio, adicione-o em **Settings → Domains** no projeto Ver
 | `INITIAL_SUPERADMIN_USERNAME` | Opcional, padrão `TI`; somente no provisionamento inicial. |
 | `INITIAL_SUPERADMIN_PASSWORD` | Obrigatória somente no provisionamento inicial; nunca versionar ou manter no runtime. |
 | `SESSION_COOKIE_NAME` | Opcional; nome do cookie de sessão. |
+
+## Arquivos do projeto
+
+O conteúdo do curso e o código devem ser versionados no Git. `.env.local`, dependências instaladas, builds e dumps de banco ficam fora do repositório; mantenha cópias seguras das variáveis necessárias e do banco no provedor. O histórico deste repositório contém apenas versões que chegaram a ser commitadas; arquivos nunca salvos no Git ou em backup externo não podem ser reconstruídos automaticamente.
