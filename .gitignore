@@ -54,3 +54,4 @@ yarn-error.log*
 
 # Dumps de banco contêm dados pessoais e credenciais derivadas.
 /backups/
+.env.example
