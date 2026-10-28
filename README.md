@@ -1,55 +1,112 @@
 # ExcelQuest
 
-Plataforma gamificada de aprendizagem de Excel, construída com Next.js, rotas de API no servidor e PostgreSQL. O conteúdo didático e a interface existente foram preservados; progresso, contas e sessões são persistidos em banco de dados gerenciado.
+Plataforma gamificada para aprender Excel em português. O curso combina aulas curtas, exercícios, simulador de fórmulas, avaliações por módulo e acompanhamento de progresso.
 
-## Arquitetura de acesso
+## Recursos
 
-- Senhas: hash `bcrypt` com custo 12; a senha nunca sai do servidor nem é registrada.
-- Sessões: token aleatório opaco, armazenado somente em cookie `HttpOnly`, `SameSite=Lax`, com `Secure` em produção. O banco guarda apenas SHA-256 do token, expira em oito horas e permite revogação no logout.
-- Autorização: toda API protegida consulta a sessão no servidor. A administração de usuários exige o perfil `superadmin` tanto na interface quanto nas rotas da API.
-- Proteções: limitação de cinco tentativas por usuário/IP em 15 minutos, verificação de origem nas mutações autenticadas, consultas parametrizadas, cabeçalhos de segurança e log de auditoria sem segredos.
+- Trilha de aulas organizada por módulos e níveis.
+- Exercícios com explicações e simulador de fórmulas.
+- Progresso, XP, sequência de estudos e conquistas associados à conta.
+- Autenticação e gestão de usuários.
+- Interface responsiva com opção de tema.
 
-## Desenvolvimento local
+## Tecnologias
 
-1. Instale Node.js 22.13 ou superior e execute `npm ci`.
-2. Copie `.env.example` para `.env.local` e configure `DATABASE_URL` com uma URL Postgres de desenvolvimento. Os comandos `db:*` carregam `.env` e `.env.local` automaticamente (`.env.local` tem precedência).
-3. Execute `npm run db:migrate`.
-4. Em um terminal seguro, defina `INITIAL_SUPERADMIN_PASSWORD` e execute `npm run db:provision-superadmin`. O usuário inicial é `TI`; esse comando só insere a conta caso ela ainda não exista e jamais a redefine.
-5. Remova a senha de provisionamento do ambiente e inicie com `npm run dev`.
+- Next.js, React e TypeScript
+- PostgreSQL, acessado pelo Neon Serverless Driver
+- Drizzle ORM e migrações SQL
+- Tailwind CSS
 
-No primeiro acesso, altere a senha inicial em **Perfil → Segurança da conta**. A troca encerra todas as sessões.
+## Requisitos
 
-### Migração de progresso do D1 legado
+- Node.js 22.13 ou superior
+- npm
+- Uma instância PostgreSQL acessível pela aplicação, por exemplo no Neon
 
-Exporte a tabela `user_progress` do D1 para um JSON (array de registros, ou `{ "rows": [...] }`) e crie, fora do repositório, um mapa explícito `mapa-usuario.json`, por exemplo `{ "id-antigo": "novo-usuario" }`. Depois de criar os novos usuários, execute `npm run db:import-d1-progress -- ./progresso-d1.json ./mapa-usuario.json`. O importador só insere progresso quando o usuário de destino existe e usa `ON CONFLICT DO NOTHING`: progresso já registrado no PostgreSQL nunca é substituído. Guarde o export original até a conferência final.
+## Executar localmente
 
-## Implantação na Vercel
+1. Clone o repositório e instale as dependências:
 
-1. Crie um banco PostgreSQL gerenciado compatível (Neon é uma opção integrada à Vercel) e obtenha `DATABASE_URL`.
-2. No diretório seguro que contém as variáveis, execute uma vez `npm run db:migrate` e `npm run db:provision-superadmin` contra o banco de produção. Não use a senha inicial em arquivos versionados.
-3. Envie o repositório para GitHub, GitLab ou Bitbucket. No painel Vercel, importe-o: o framework será detectado como Next.js. Build: `npm run build`; saída: padrão do Next.js. Não é necessário `vercel.json`.
-4. Em **Settings → Environment Variables**, cadastre `DATABASE_URL` em Production, Preview e Development conforme os bancos de cada ambiente. Cadastre a senha de provisionamento apenas para o procedimento pontual, nunca como variável permanente de runtime.
-5. Faça o deploy e valide login, persistência de progresso, logout e gestão de usuários pela URL de produção antes de liberar o acesso.
+   ```bash
+   npm ci
+   ```
 
-Para um domínio próprio, adicione-o em **Settings → Domains** no projeto Vercel e aplique os registros DNS indicados pelo painel. O HTTPS é emitido e renovado pela Vercel depois da validação do DNS.
+2. Crie `.env.local` na raiz do projeto. O arquivo é local e não deve ser enviado ao Git. Adicione a URL do seu banco:
 
-## Atualizações, rollback, backup e recuperação
+   ```env
+   DATABASE_URL=postgresql://USUARIO:SENHA@HOST/BANCO?sslmode=require
+   SESSION_COOKIE_NAME=excelquest_session
+   ```
 
-- Mantenha migrações SQL novas e incrementais em `db/migrations`. Nunca altere uma migração já aplicada.
-- Configure backups automáticos e recuperação point-in-time no provedor Postgres. Para uma cópia lógica manual, instale as ferramentas cliente do PostgreSQL e execute `npm run db:backup -- /caminho/seguro/excelquest-$(date +%F).dump`. O comando exige `DATABASE_URL` em `.env.local` ou no ambiente. Armazene a cópia fora desta máquina, em local com acesso restrito; arquivos de backup contêm dados de contas e progresso.
-- Para restaurar, use `pg_restore --no-owner --no-acl --dbname="$DATABASE_URL" /caminho/seguro/backup.dump` em um banco de destino apropriado. Valide a restauração nesse banco antes de alterar `DATABASE_URL` da aplicação.
-- Para reverter uma versão da aplicação, promova um deployment anterior no painel Vercel. Migrações são compatíveis apenas para frente; prepare uma migração corretiva caso um rollback de código dependa de alteração de esquema.
-- A desativação de usuários preserva auditoria e dados; ela também revoga sessões ativas. Há suporte pronto para os perfis `admin`, `manager` e `collaborator`; hoje as ações administrativas ficam exclusivamente com `superadmin`.
+   Substitua os valores de exemplo pelos dados fornecidos pelo seu provedor PostgreSQL. Não compartilhe nem versione credenciais reais.
 
-## Variáveis de ambiente
+3. Crie as tabelas do sistema:
 
-| Variável | Uso |
+   ```bash
+   npm run db:migrate
+   ```
+
+4. Para criar a primeira conta administrativa, defina temporariamente uma senha com pelo menos 12 caracteres e execute o provisionamento:
+
+   ```bash
+   INITIAL_SUPERADMIN_USERNAME=TI INITIAL_SUPERADMIN_PASSWORD='SUA_SENHA_FORTE' npm run db:provision-superadmin
+   ```
+
+   O comando não altera uma conta que já exista. Remova a senha do ambiente depois do provisionamento. No primeiro acesso, troque a senha em **Perfil → Segurança da conta**.
+
+5. Inicie a aplicação:
+
+   ```bash
+   npm run dev
+   ```
+
+   Abra [http://localhost:3000](http://localhost:3000).
+
+Os comandos de banco carregam variáveis de `.env` e `.env.local`; valores definidos no ambiente do terminal prevalecem. O Next.js também carrega os arquivos de ambiente locais durante o desenvolvimento.
+
+## Scripts disponíveis
+
+| Comando | Descrição |
 | --- | --- |
-| `DATABASE_URL` | URL privada de conexão PostgreSQL; obrigatória em execução e migrações. |
-| `INITIAL_SUPERADMIN_USERNAME` | Opcional, padrão `TI`; somente no provisionamento inicial. |
-| `INITIAL_SUPERADMIN_PASSWORD` | Obrigatória somente no provisionamento inicial; nunca versionar ou manter no runtime. |
-| `SESSION_COOKIE_NAME` | Opcional; nome do cookie de sessão. |
+| `npm run dev` | Inicia o servidor de desenvolvimento. |
+| `npm run build` | Gera a versão de produção. |
+| `npm run start` | Inicia a versão já compilada. |
+| `npm run lint` | Analisa o código com Oxlint. |
+| `npm run typecheck` | Verifica os tipos TypeScript. |
+| `npm run db:migrate` | Aplica as migrações do banco. |
+| `npm run db:provision-superadmin` | Cria a primeira conta superadmin, se ainda não existir. |
+| `npm run db:backup -- <arquivo.dump>` | Gera um backup PostgreSQL; requer `pg_dump`. |
 
-## Arquivos do projeto
+## Banco e backups
 
-O conteúdo do curso e o código devem ser versionados no Git. `.env.local`, dependências instaladas, builds e dumps de banco ficam fora do repositório; mantenha cópias seguras das variáveis necessárias e do banco no provedor. O histórico deste repositório contém apenas versões que chegaram a ser commitadas; arquivos nunca salvos no Git ou em backup externo não podem ser reconstruídos automaticamente.
+As migrações SQL ficam em `db/migrations`. Crie novas migrações incrementais e não edite migrações que já foram aplicadas em um banco compartilhado.
+
+Configure backups automáticos no provedor PostgreSQL. Para criar um backup manual, instale as ferramentas cliente do PostgreSQL e execute:
+
+```bash
+npm run db:backup -- ./backups/excelquest.dump
+```
+
+Guarde os backups fora da máquina de desenvolvimento, em armazenamento privado. Para restaurar um arquivo, use `pg_restore` em um banco de destino e valide os dados antes de apontar a aplicação para ele.
+
+## Implantação
+
+A aplicação pode ser implantada em plataformas compatíveis com Next.js, como a Vercel. Configure `DATABASE_URL` como variável de ambiente privada para cada ambiente (produção, prévia e desenvolvimento), aplique as migrações no banco correspondente e execute o build com:
+
+```bash
+npm run build
+```
+
+Não configure `INITIAL_SUPERADMIN_PASSWORD` como variável permanente da aplicação. Use-a apenas durante o provisionamento inicial.
+
+## Segurança
+
+- Senhas são armazenadas com hash bcrypt.
+- Sessões usam cookies `HttpOnly` e tokens com hash no banco.
+- Rotas protegidas verificam a sessão e a autorização no servidor.
+- Tentativas de login são limitadas e eventos de autenticação são auditados.
+- Arquivos de ambiente, credenciais e backups não devem ser enviados ao repositório.
+
+## Contribuições
+
+Abra uma issue para relatar problemas ou sugerir melhorias. Para propor uma alteração, crie uma branch, faça as mudanças e envie um pull request com uma descrição objetiva.
